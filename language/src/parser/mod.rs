@@ -5,6 +5,6 @@ use pest_derive::Parser;
 mod tests;
 
 #[derive(Parser)]
-#[grammar = "grammar.pest"]
+#[grammar = "parser/grammar.pest"]
 pub struct CurryParser;
 
