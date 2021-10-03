@@ -1,0 +1,15 @@
+statement = { assignment }
+assignment = { symbol_ref ~ "=" ~ string }
+
+
+symbol_ref = { ASCII_ALPHA ~ (ASCII_ALPHANUMERIC|"_")* }
+
+string = ${ "\"" ~ inner ~ "\"" }
+inner = @{ char* }
+char = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
+
+WHITESPACE = _{" "}
