@@ -1,4 +1,4 @@
-use pest::Parser;
+pub(crate) use pest::Parser;
 use pest_derive::Parser;
 
 #[cfg(test)]
