@@ -1,8 +1,14 @@
-statement = { assignment }
-assignment = { symbol_ref ~ "=" ~ string }
+statement = { assignment | expression }
+assignment = { symbol_ref ~ "=" ~ value }
+expression = { value | function_call }
+
+function_call = { symbol_ref ~ "(" ~ fn_args? ~ ")"}
+fn_args = { fn_arg ~ ("," ~ fn_arg )* }
+fn_arg = _{ expression }
 
 
 symbol_ref = { ASCII_ALPHA ~ (ASCII_ALPHANUMERIC|"_")* }
+value = { string }
 
 string = ${ "\"" ~ inner ~ "\"" }
 inner = @{ char* }
@@ -12,4 +18,4 @@ char = {
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 
-WHITESPACE = _{" "}
+WHITESPACE = _{" " | NEWLINE}
