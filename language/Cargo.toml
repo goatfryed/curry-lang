@@ -1,5 +1,5 @@
 [package]
-name = "curry-lang"
+name = "curry-lang-language"
 version = "0.1.0"
 edition = "2018"
 
@@ -9,3 +9,4 @@ edition = "2018"
 pest = "2.1.3"
 pest_derive = "2.1.0"
 single = "1.0.0"
+inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm12-0"] }
