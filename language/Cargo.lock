@@ -102,6 +102,7 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 name = "curry-lang-language"
 version = "0.1.0"
 dependencies = [
+ "failure",
  "inkwell",
  "pest",
  "pest_derive",
@@ -343,6 +344,10 @@ dependencies = [
  "pest",
  "sha-1",
 ]
+
+[[package]]
+name = "playground"
+version = "0.1.0"
 
 [[package]]
 name = "proc-macro2"

@@ -1,4 +1,5 @@
 use pest_derive::Parser;
+pub use pest::Parser;
 
 #[cfg(test)]
 mod tests;
