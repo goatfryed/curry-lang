@@ -8,6 +8,8 @@ edition = "2018"
 [dependencies]
 pest = "^2.1"
 pest_derive = "^2.1"
-itertools = "0.10.5"
+itertools = "~0.10"
 inkwell = { git = "https://github.com/TheDan64/inkwell", branch = "master", features = ["llvm12-0"] }
-failure = "0.1.8"
+failure = "^0.1"
+thiserror = "^1.0"
+anyhow = "^1.0"

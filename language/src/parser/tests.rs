@@ -1,49 +1,54 @@
 use super::*;
-use itertools::Itertools;
+use itertools::{Itertools};
+use std::error::Error;
+use std::convert::TryInto;
+use crate::parser::ast::{Statement, StatementKind};
+use crate::parser::pest_utils::PairsHelper;
 
-#[test]
-fn it_parses_assignment_statement() {
-    let parsed: Vec<_> = CurryParser::parse(
-        Rule::statement,
-        r#"menu12a = "spicy""#
-    ).unwrap().next().unwrap()
-        .into_inner().into_iter().collect();
-    assert_eq!(1, parsed.len());
-    let statement = &parsed[0];
-    assert_eq!(Rule::assignment, statement.as_rule());
-}
 
-mod function {
+mod basic {
     use super::*;
 
     #[test]
-    fn it_parses() {
-        let function_call = CurryParser::parse(
+    fn it_parses_function_call() -> Result<(), Box<dyn Error>> {
+        CurryParser::parse(
             Rule::function_call,
-            r#"println("Hello World!")"#
-        ).unwrap().exactly_one().unwrap();
+            r#"printf("Hello World!")"#
+        )?.exactly_one()?;
+        Ok(())
+    }
+}
 
-        let mut tokens:Vec<_> = function_call.into_inner().collect();
-        assert_eq!(2, tokens.len());
-        assert_eq!(Rule::symbol_ref, tokens.remove(0).as_rule());
+mod statements {
+    use super::*;
 
-        let args = tokens.remove(0);
-        assert_eq!(Rule::fn_args, args.as_rule());
+    #[test]
+    fn assignment_is_statement() {
+        let statement: Statement = CurryParser::parse(
+            Rule::statement,
+            r#"menu12a = "spicy""#
+        ).unwrap()
+            .unique_pair().unwrap()
+            .try_into().unwrap();
 
-        let arg = args.into_inner().exactly_one().unwrap();
-        assert_eq!(Rule::expression, arg.as_rule());
+        match statement.kind {
+            StatementKind::Assignment(_pair) => {},
+            _ => panic!("unexpected stmt type {}", statement.kind)
+        }
     }
 
     #[test]
-    fn its_a_statement() {
-        let expression = CurryParser::parse(
+    fn function_call_is_statement() {
+        let statement: Statement = CurryParser::parse(
             Rule::statement,
-            r#"println("Hello World!")"#
-        ).unwrap().exactly_one().unwrap()
-            .into_inner()
-            .exactly_one().unwrap();
-        assert_eq!(Rule::expression, expression.as_rule());
-        let function_call = expression.into_inner().exactly_one().unwrap();
-        assert_eq!(Rule::function_call, function_call.as_rule());
+            r#"printf("Hello World!")"#
+        ).unwrap()
+            .unique_pair().unwrap()
+            .try_into().unwrap();
+
+        match statement.kind {
+            StatementKind::FunctionCall(_pair) => {},
+            _ => panic!("unexpected stmt type {}", statement.kind)
+        }
     }
 }
