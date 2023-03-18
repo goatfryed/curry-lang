@@ -1,5 +1,5 @@
 use super::*;
-use single::Single;
+use itertools::Itertools;
 
 #[test]
 fn it_parses_assignment_statement() {
@@ -21,7 +21,7 @@ mod function {
         let function_call = CurryParser::parse(
             Rule::function_call,
             r#"println("Hello World!")"#
-        ).unwrap().single().unwrap();
+        ).unwrap().exactly_one().unwrap();
 
         let mut tokens:Vec<_> = function_call.into_inner().collect();
         assert_eq!(2, tokens.len());
@@ -30,7 +30,7 @@ mod function {
         let args = tokens.remove(0);
         assert_eq!(Rule::fn_args, args.as_rule());
 
-        let arg = args.into_inner().single().unwrap();
+        let arg = args.into_inner().exactly_one().unwrap();
         assert_eq!(Rule::expression, arg.as_rule());
     }
 
@@ -39,11 +39,11 @@ mod function {
         let expression = CurryParser::parse(
             Rule::statement,
             r#"println("Hello World!")"#
-        ).unwrap().single().unwrap()
+        ).unwrap().exactly_one().unwrap()
             .into_inner()
-            .single().unwrap();
+            .exactly_one().unwrap();
         assert_eq!(Rule::expression, expression.as_rule());
-        let function_call = expression.into_inner().single().unwrap();
+        let function_call = expression.into_inner().exactly_one().unwrap();
         assert_eq!(Rule::function_call, function_call.as_rule());
     }
 }

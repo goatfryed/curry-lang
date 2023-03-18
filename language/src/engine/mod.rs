@@ -1,5 +1,4 @@
 use std::fs::read_to_string;
-use std::iter::empty;
 use std::path::Path;
 use failure::Error;
 use inkwell::{AddressSpace, OptimizationLevel};
@@ -7,11 +6,12 @@ use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
-use inkwell::values::{BasicValue, BasicValueEnum};
+use inkwell::values::{BasicValue, BasicMetadataValueEnum};
 use pest::iterators::{Pair, Pairs};
 use crate::parser;
 use pest::Parser;
-use single::Single;
+use itertools::Itertools;
+use std::convert::TryInto;
 
 type MainFn = unsafe extern "C" fn();
 
@@ -34,12 +34,12 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     pub fn compile_source<P: AsRef<Path>>(&self, path: P) -> Result<(),Error> {
-        let raw_source = read_to_string(path)?;
+        let raw_source = read_to_string(path).unwrap();
 
-        let root: Pair<parser::Rule> = parser::CurryParser::parse(
+        let root = parser::CurryParser::parse(
             parser::Rule::statement,
             raw_source.as_str()
-        )?.single()?;
+        ).unwrap().exactly_one().unwrap();
 
         self.add_builtins();
         self.begin_main();
@@ -55,6 +55,7 @@ impl<'ctx> CodeGen<'ctx> {
                     args.as_ref(),
                     symbol_ref
                 );
+                self.builder.build_return(None);
             },
             _ => println!("{:?}", root)
         }
@@ -62,22 +63,22 @@ impl<'ctx> CodeGen<'ctx> {
         return Ok(());
     }
 
-    fn build_fn_args(&self, pairs: Pairs<parser::Rule>) -> Vec<BasicValueEnum<'ctx>> {
+    fn build_fn_args(&self, pairs: Pairs<parser::Rule>) -> Vec<BasicMetadataValueEnum<'ctx>> {
         return pairs.into_iter()
             .map(|arg| self.build_fn_arg(arg))
-            .collect::<Vec<BasicValueEnum>>();
+            .collect::<Vec<BasicMetadataValueEnum<'ctx>>>();
     }
 
-    fn build_fn_arg(&self, pair: Pair<parser::Rule>) -> BasicValueEnum {
+    fn build_fn_arg(&self, pair: Pair<parser::Rule>) -> BasicMetadataValueEnum<'ctx> {
         match pair.as_rule() {
             parser::Rule::expression => {},
             _ => panic!("unsupported pair {:?}", pair)
         }
-        let pair = pair.into_inner().single().expect("expression without a single token below");
+        let pair = pair.into_inner().exactly_one().expect("expression without a single token below");
         return match pair.as_rule() {
             parser::Rule::value => self.builder
                 .build_global_string_ptr(pair.as_str(), "arg")
-                .as_basic_value_enum()
+                .as_basic_value_enum().try_into().unwrap()
             ,
             parser::Rule::function_call => todo!("function call as function argument"),
             _ => panic!("unsupported pair {:?}", pair)
@@ -94,7 +95,7 @@ impl<'ctx> CodeGen<'ctx> {
 
         self.builder.build_call(
             self.entry.get_function("printf").expect("printf not defined"),
-            &[format.as_basic_value_enum(), value.as_basic_value_enum()],
+            &[format.as_basic_value_enum().into(), value.as_basic_value_enum().into()],
             "printf"
         );
         self.builder.build_return(None);
@@ -111,7 +112,7 @@ impl<'ctx> CodeGen<'ctx> {
     }
 
     fn add_builtins(&self) {
-        let char_array = self.context.i8_type().ptr_type(AddressSpace::Generic);
+        let char_array = self.context.i8_type().ptr_type(AddressSpace::default());
         let param_types = &[char_array.into()];
         let void = self.context.void_type();
         let type_printf = void.fn_type(param_types, true);
