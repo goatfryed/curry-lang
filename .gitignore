@@ -1,6 +1,7 @@
 # baseline tests
 **/tests/baseline_tests/*/**
 !**/tests/baseline_tests/*/**/*.expected.*
+!**/tests/baseline_tests/*/**/*.cry
 
 # no custom module definitions
 *.iml
