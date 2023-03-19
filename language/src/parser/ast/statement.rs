@@ -1,9 +1,8 @@
 use std::convert::TryFrom;
 use std::fmt;
-use super::*;
 use pest::iterators::Pair;
 use pest::Span;
-use crate::parser::pest_utils::{InvalidParserState};
+use crate::parser::{Rule,InvalidParserState};
 
 #[derive(Debug)]
 pub struct Statement<'a> {
@@ -39,4 +38,43 @@ impl <'a> fmt::Display for StatementKind<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self, f)
     }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use pest::Parser;
+    use std::convert::TryInto;
+    use crate::parser::{CurryParser,PairsHelper};
+
+    #[test]
+    fn assignment_is_statement() {
+        let statement: Statement = CurryParser::parse(
+            Rule::statement,
+            r#"menu12a = "spicy""#
+        ).unwrap()
+            .unique_pair().unwrap()
+            .try_into().unwrap();
+
+        match statement.kind {
+            StatementKind::Assignment(_pair) => {},
+            _ => panic!("unexpected stmt type {}", statement.kind)
+        }
+    }
+
+    #[test]
+    fn function_call_is_statement() {
+        let statement: Statement = CurryParser::parse(
+            Rule::statement,
+            r#"printf("Hello World!")"#
+        ).unwrap()
+            .unique_pair().unwrap()
+            .try_into().unwrap();
+
+        match statement.kind {
+            StatementKind::FunctionCall(_pair) => {},
+            _ => panic!("unexpected stmt type {}", statement.kind)
+        }
+    }
+
 }

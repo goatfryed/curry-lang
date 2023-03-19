@@ -2,7 +2,7 @@ use std::path::{Path};
 use inkwell::context::Context;
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::process::{Command, Stdio};
-use curry_lang_language::engine::CodeGen;
+use curry_lang_language::ll_code_gen::CodeGen;
 
 #[test]
 fn hello_world() {
