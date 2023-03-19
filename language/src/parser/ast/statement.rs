@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use pest::iterators::Pair;
 use pest::Span;
-use crate::parser::{Rule,InvalidParserState};
+use super::*;
 
 #[derive(Debug)]
 pub struct Statement<'a> {
@@ -45,7 +45,7 @@ mod test {
     use super::*;
     use pest::Parser;
     use std::convert::TryInto;
-    use crate::parser::{CurryParser,PairsHelper};
+    use crate::parser::curry_pest::{CurryParser,PairsHelper};
 
     #[test]
     fn assignment_is_statement() {

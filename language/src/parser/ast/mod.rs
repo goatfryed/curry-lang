@@ -1,37 +1,18 @@
-use thiserror::Error;
-use crate::parser::*;
-
 pub mod statement;
+pub mod errors;
 
+pub use crate::parser::curry_pest::*;
+pub use crate::parser::errors::*;
+pub use anyhow::{Error,Context};
 
-#[derive(Error,Debug)]
-pub enum IllegalSourceState {
-    #[error("Expected exactly one inner pair")]
-    UniqueConstraintViolation,
-    #[error("{rule} is not allowed here: {context}")]
-    IllegalRule {
-        rule: Rule,
-        context: String,
-    },
-}
+use std::convert::TryInto;
+use crate::parser::ast::statement::Statement;
 
-impl From<IllegalSourceState> for InvalidParserState {
-    fn from(value: IllegalSourceState) -> Self {
-        InvalidParserState::IllegalSourceState(value)
-    }
-}
+#[allow(dead_code)]
+pub fn parse_to_ast(input: &str) -> Result<Statement,Error> {
+    let source_pair = CurryParser::parse(Rule::source, input)
+        .context("parsing cst")?
+        .unique_pair()?;
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use super::PairsHelper;
-
-    #[test]
-    fn it_parses_function_call() {
-        CurryParser::parse(
-            Rule::function_call,
-            r#"printf("Hello World!")"#
-        ).unwrap()
-            .unique_pair().unwrap();
-    }
+    source_pair.try_into().context("build source")
 }

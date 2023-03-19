@@ -8,7 +8,7 @@ use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::values::{BasicValue, BasicMetadataValueEnum};
 use pest::iterators::{Pair, Pairs};
-use crate::parser;
+use crate::parser::curry_pest;
 use pest::Parser;
 use itertools::Itertools;
 use std::convert::TryInto;
@@ -36,8 +36,8 @@ impl<'ctx> CodeGen<'ctx> {
     pub fn compile_source<P: AsRef<Path>>(&self, path: P) -> Result<(),Error> {
         let raw_source = read_to_string(path).unwrap();
 
-        let root = parser::CurryParser::parse(
-            parser::Rule::statement,
+        let root = curry_pest::CurryParser::parse(
+            curry_pest::Rule::statement,
             raw_source.as_str()
         ).unwrap().exactly_one().unwrap();
 
@@ -45,8 +45,8 @@ impl<'ctx> CodeGen<'ctx> {
         self.begin_main();
 
         match root.as_rule() {
-            parser::Rule::assignment => println!("got an assignment"),
-            parser::Rule::function_call => {
+            curry_pest::Rule::assignment => println!("got an assignment"),
+            curry_pest::Rule::function_call => {
                 let mut inner = root.into_inner();
                 let symbol_ref = inner.next().expect("function call requires symbol ref").as_str();
                 let args = inner.next().map(|args| self.build_fn_args(args.into_inner())).unwrap_or(Vec::new());
@@ -63,24 +63,24 @@ impl<'ctx> CodeGen<'ctx> {
         return Ok(());
     }
 
-    fn build_fn_args(&self, pairs: Pairs<parser::Rule>) -> Vec<BasicMetadataValueEnum<'ctx>> {
+    fn build_fn_args(&self, pairs: Pairs<curry_pest::Rule>) -> Vec<BasicMetadataValueEnum<'ctx>> {
         return pairs.into_iter()
             .map(|arg| self.build_fn_arg(arg))
             .collect::<Vec<BasicMetadataValueEnum<'ctx>>>();
     }
 
-    fn build_fn_arg(&self, pair: Pair<parser::Rule>) -> BasicMetadataValueEnum<'ctx> {
+    fn build_fn_arg(&self, pair: Pair<curry_pest::Rule>) -> BasicMetadataValueEnum<'ctx> {
         match pair.as_rule() {
-            parser::Rule::expression => {},
+            curry_pest::Rule::expression => {},
             _ => panic!("unsupported pair {:?}", pair)
         }
         let pair = pair.into_inner().exactly_one().expect("expression without a single token below");
         return match pair.as_rule() {
-            parser::Rule::value => self.builder
+            curry_pest::Rule::value => self.builder
                 .build_global_string_ptr(pair.as_str(), "arg")
                 .as_basic_value_enum().try_into().unwrap()
             ,
-            parser::Rule::function_call => todo!("function call as function argument"),
+            curry_pest::Rule::function_call => todo!("function call as function argument"),
             _ => panic!("unsupported pair {:?}", pair)
         }
     }
