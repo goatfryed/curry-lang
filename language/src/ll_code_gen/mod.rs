@@ -1,10 +1,9 @@
 use std::fs::read_to_string;
 use std::path::Path;
 use failure::Error;
-use inkwell::{AddressSpace, OptimizationLevel};
+use inkwell::{AddressSpace};
 use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::execution_engine::{ExecutionEngine, JitFunction};
 use inkwell::module::Module;
 use inkwell::values::{BasicValue, BasicMetadataValueEnum};
 use pest::iterators::{Pair, Pairs};
@@ -13,24 +12,19 @@ use pest::Parser;
 use itertools::Itertools;
 use std::convert::TryInto;
 
-type MainFn = unsafe extern "C" fn();
-
 #[derive(Debug)]
 pub struct CodeGen<'ctx> {
     pub context: &'ctx Context,
     pub entry: Module<'ctx>,
     builder: Builder<'ctx>,
-    engine: ExecutionEngine<'ctx>
 }
 
 impl<'ctx> CodeGen<'ctx> {
     pub fn new(context: &Context) -> CodeGen {
         let system = context.create_module("system");
         let builder = context.create_builder();
-        let engine =
-            system.create_jit_execution_engine(OptimizationLevel::None)
-            .expect("failed to create execution engine");
-        return  CodeGen { context, entry: system, builder, engine };
+
+        CodeGen { context, entry: system, builder }
     }
 
     pub fn compile_source<P: AsRef<Path>>(&self, path: P) -> Result<(),Error> {
@@ -51,7 +45,7 @@ impl<'ctx> CodeGen<'ctx> {
                 let symbol_ref = inner.next().expect("function call requires symbol ref").as_str();
                 let args = inner.next().map(|args| self.build_fn_args(args.into_inner())).unwrap_or(Vec::new());
                 self.builder.build_call(
-                    self.entry.get_function(symbol_ref).expect(&*format!("{} not defined", symbol_ref)),
+                    self.entry.get_function(symbol_ref).unwrap_or_else(|| panic!("{} not defined", symbol_ref)),
                     args.as_ref(),
                     symbol_ref
                 );
@@ -60,13 +54,13 @@ impl<'ctx> CodeGen<'ctx> {
             _ => println!("{:?}", root)
         }
 
-        return Ok(());
+        Ok(())
     }
 
     fn build_fn_args(&self, pairs: Pairs<curry_pest::Rule>) -> Vec<BasicMetadataValueEnum<'ctx>> {
-        return pairs.into_iter()
+        pairs.into_iter()
             .map(|arg| self.build_fn_arg(arg))
-            .collect::<Vec<BasicMetadataValueEnum<'ctx>>>();
+            .collect::<Vec<BasicMetadataValueEnum<'ctx>>>()
     }
 
     fn build_fn_arg(&self, pair: Pair<curry_pest::Rule>) -> BasicMetadataValueEnum<'ctx> {
@@ -83,25 +77,6 @@ impl<'ctx> CodeGen<'ctx> {
             curry_pest::Rule::function_call => todo!("function call as function argument"),
             _ => panic!("unsupported pair {:?}", pair)
         }
-    }
-
-    pub fn compile_printer(&self) -> JitFunction<'ctx, MainFn> {
-
-        self.add_builtins();
-        self.begin_main();
-
-        let format = self.builder.build_global_string_ptr("Hello World! Greetings from %s!\n", "format");
-        let value = self.builder.build_global_string_ptr("curry-lang", "value");
-
-        self.builder.build_call(
-            self.entry.get_function("printf").expect("printf not defined"),
-            &[format.as_basic_value_enum().into(), value.as_basic_value_enum().into()],
-            "printf"
-        );
-        self.builder.build_return(None);
-
-        let main = unsafe { self.engine.get_function("main").expect("unable to compile").to_owned() };
-        return main;
     }
 
     fn begin_main(&self) {
