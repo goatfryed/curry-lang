@@ -1,8 +1,7 @@
 use std::path::{Path};
-use inkwell::context::Context;
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::process::{Command, Stdio};
-use curry_lang_language::ll_code_gen::CodeGen;
+use curry_lang_language::{LLIRCodeGenerator,Context};
 
 #[test]
 fn hello_world() {
@@ -26,9 +25,11 @@ fn run_baseline_test(key: &str) {
     let actual_errors = &format!("{}.actual.{}", key.to_owned(), "err");
 
     let context = Context::create();
-    let code_gen = CodeGen::new(&context);
-    code_gen.compile_source(input).unwrap();
-    code_gen.entry.print_to_file(ir_path).unwrap();
+    let mut code_gen = LLIRCodeGenerator::new(&context);
+    code_gen.compile_source_file(input).unwrap();
+    let modules = &mut code_gen.modules;
+    assert_eq!(1, modules.len());
+    modules.remove("main").unwrap().print_to_file(ir_path).unwrap();
 
 
     Command::new("clang")

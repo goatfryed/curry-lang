@@ -1,96 +1,141 @@
-use std::fs::read_to_string;
-use std::path::Path;
-use failure::Error;
+use std::collections::HashMap;
+use anyhow::*;
+use anyhow::Context as AnyhowContext;
 use inkwell::{AddressSpace};
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
 use inkwell::values::{BasicValue, BasicMetadataValueEnum};
 use pest::iterators::{Pair, Pairs};
-use crate::parser::curry_pest;
-use pest::Parser;
-use itertools::Itertools;
 use std::convert::TryInto;
+use std::fs::read_to_string;
+use std::path::Path;
+
+use std::rc::{Rc};
+use inkwell::basic_block::BasicBlock;
+use crate::parser::ast::*;
+
+const ENTRY_BLOCK_NAME: &str = "entry";
+const MAIN_FN_NAME: &str = "main";
 
 #[derive(Debug)]
-pub struct CodeGen<'ctx> {
-    pub context: &'ctx Context,
-    pub entry: Module<'ctx>,
-    builder: Builder<'ctx>,
+pub struct LLIRCodeGenerator<'a: 'b, 'b> {
+    pub context: &'a Context,
+    pub modules: HashMap<String, Rc<Module<'b>>>
 }
 
-impl<'ctx> CodeGen<'ctx> {
-    pub fn new(context: &Context) -> CodeGen {
-        let system = context.create_module("system");
-        let builder = context.create_builder();
+#[derive(Debug)]
+pub struct ModuleGeneration<'a: 'b, 'b> {
+    pub context: &'a Context,
+    pub module: &'b Module<'a>,
+    pub builder: &'b Builder<'a>,
+}
 
-        CodeGen { context, entry: system, builder }
+impl <'a, 'b> LLIRCodeGenerator<'a, 'b> {
+    pub fn new(context: &'a Context) -> LLIRCodeGenerator<'a, 'b> {
+        LLIRCodeGenerator {
+            context,
+            modules: HashMap::new(),
+        }
     }
 
-    pub fn compile_source<P: AsRef<Path>>(&self, path: P) -> Result<(),Error> {
-        let raw_source = read_to_string(path).unwrap();
+    pub fn  compile_source_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
+        let input = read_to_string(&path)
+            .with_context(|| format!("reading {}", path.as_ref().display()))?;
 
-        let root = curry_pest::CurryParser::parse(
-            curry_pest::Rule::statement,
-            raw_source.as_str()
-        ).unwrap().exactly_one().unwrap();
+        self.compile_source(input)
+    }
 
-        self.add_builtins();
-        self.begin_main();
+    pub fn compile_source(&mut self, input: String) -> Result<()> {
 
-        match root.as_rule() {
-            curry_pest::Rule::assignment => println!("got an assignment"),
-            curry_pest::Rule::function_call => {
-                let mut inner = root.into_inner();
-                let symbol_ref = inner.next().expect("function call requires symbol ref").as_str();
-                let args = inner.next().map(|args| self.build_fn_args(args.into_inner())).unwrap_or(Vec::new());
-                self.builder.build_call(
-                    self.entry.get_function(symbol_ref).unwrap_or_else(|| panic!("{} not defined", symbol_ref)),
-                    args.as_ref(),
-                    symbol_ref
-                );
-                self.builder.build_return(None);
-            },
-            _ => println!("{:?}", root)
-        }
+        let source = parse_to_ast(input.as_ref())?;
+        create_main_module(self, source)
+            .context("create main module")?;
 
         Ok(())
     }
+}
 
-    fn build_fn_args(&self, pairs: Pairs<curry_pest::Rule>) -> Vec<BasicMetadataValueEnum<'ctx>> {
-        pairs.into_iter()
-            .map(|arg| self.build_fn_arg(arg))
-            .collect::<Vec<BasicMetadataValueEnum<'ctx>>>()
-    }
+pub fn create_main_module<'a: 'b, 'b>(ctx: &mut LLIRCodeGenerator<'a,'b>, statement: Statement) -> anyhow::Result<()> {
+    create_module(ctx, MAIN_FN_NAME, |ctx: &ModuleGeneration| {
+        add_builtins(ctx);
+        build_main(ctx, statement)
+    })
+}
 
-    fn build_fn_arg(&self, pair: Pair<curry_pest::Rule>) -> BasicMetadataValueEnum<'ctx> {
-        match pair.as_rule() {
-            curry_pest::Rule::expression => {},
-            _ => panic!("unsupported pair {:?}", pair)
+pub fn create_module<'a,F>
+(
+    ctx: &mut LLIRCodeGenerator,
+    name: &str,
+    build_module: F
+) -> anyhow::Result<()>
+    where F: FnOnce(&ModuleGeneration)
+{
+    let module = Rc::new(ctx.context.create_module(name));
+    let builder = ctx.context.create_builder();
+    let module_gen = ModuleGeneration {module: &module, context: &ctx.context, builder: &builder};
+    build_module(&module_gen);
+    ctx.modules.insert(name.to_string(), module);
+
+    Ok(())
+}
+
+
+fn build_main(context: &ModuleGeneration, statement: Statement) {
+    let block = create_fn(context, MAIN_FN_NAME);
+    context.builder.position_at_end(block);
+
+    match statement.kind {
+        StatementKind::Assignment(_) => println!("We are aware of assignments, but didn't implement them yet :)"),
+        StatementKind::FunctionCall(call) => {
+            let mut inner = call.into_inner();
+            let symbol_ref = inner.next().expect("function call requires symbol ref").as_str();
+            let args = inner.next().map(|args| build_fn_args(context, args.into_inner())).unwrap_or(Vec::new());
+            context.builder.build_call(
+                context.module.get_function(symbol_ref).unwrap_or_else(|| panic!("{} not defined", symbol_ref)),
+                args.as_ref(),
+                symbol_ref
+            );
+            context.builder.build_return(None);
         }
-        let pair = pair.into_inner().exactly_one().expect("expression without a single token below");
-        return match pair.as_rule() {
-            curry_pest::Rule::value => self.builder
-                .build_global_string_ptr(pair.as_str(), "arg")
-                .as_basic_value_enum().try_into().unwrap()
-            ,
-            curry_pest::Rule::function_call => todo!("function call as function argument"),
-            _ => panic!("unsupported pair {:?}", pair)
-        }
     }
 
-    fn begin_main(&self) {
-        let type_main = self.context.void_type().fn_type(&[], false);
-        let main = self.entry.add_function("main", type_main, None);
-        let entry = self.context.append_basic_block(main, "entry");
-        self.builder.position_at_end(entry);
-    }
+}
 
-    fn add_builtins(&self) {
-        let char_array = self.context.i8_type().ptr_type(AddressSpace::default());
-        let param_types = &[char_array.into()];
-        let void = self.context.void_type();
-        let type_printf = void.fn_type(param_types, true);
-        self.entry.add_function("printf", type_printf, None);
+fn add_builtins(ctx: &ModuleGeneration) {
+    let char_array = ctx.context
+        .i8_type().ptr_type(AddressSpace::default());
+    let param_types = &[char_array.into()];
+    let void = ctx.context.void_type();
+    let type_printf = void.fn_type(param_types, true);
+    ctx.module.add_function("printf", type_printf, None);
+}
+
+fn create_fn<'a>(context: &'a ModuleGeneration, name: &str) -> BasicBlock<'a> {
+    let type_main = context.context.void_type().fn_type(&[], false);
+    let main = context.module.add_function(name, type_main, None);
+
+    context.context.append_basic_block(main, ENTRY_BLOCK_NAME)
+}
+
+fn build_fn_args<'a: 'b, 'b>(context: &ModuleGeneration<'a, 'b>, pairs: Pairs<Rule>) -> Vec<BasicMetadataValueEnum<'a>> {
+    pairs.into_iter()
+        .map(|arg| build_fn_arg(context, arg))
+        .collect::<Vec<BasicMetadataValueEnum>>()
+}
+
+fn build_fn_arg<'a: 'b, 'b>(context: &ModuleGeneration<'a,'b>, pair: Pair<Rule>) -> BasicMetadataValueEnum<'a> {
+    match pair.as_rule() {
+        Rule::expression => {},
+        _ => panic!("unsupported pair {:?}", pair)
+    }
+    let pair = pair.into_inner().unique_pair().expect("expression without a single token below");
+    return match pair.as_rule() {
+        Rule::value => context.builder
+            .build_global_string_ptr(pair.as_str(), "arg")
+            .as_basic_value_enum().try_into().unwrap()
+        ,
+        Rule::function_call => todo!("function call as function argument"),
+        _ => panic!("unsupported pair {:?}", pair)
     }
 }

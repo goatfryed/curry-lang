@@ -23,14 +23,15 @@ impl <'a> TryFrom<Pair<'a,Rule>> for Statement<'a> {
     fn try_from(pair: Pair<'a, Rule>) -> Result<Self, Self::Error> {
         let span = pair.as_span();
         let kind = match pair.as_rule() {
-            Rule::assignment => Ok(StatementKind::Assignment(pair)),
-            Rule::function_call => Ok(StatementKind::FunctionCall(pair)),
+            Rule::assignment => Result::Ok(StatementKind::Assignment(pair)),
+            Rule::function_call => Result::Ok(StatementKind::FunctionCall(pair)),
             rule => Err(
                 InvalidParserState::illegal_rule(rule, "Tried to create statement".to_string())
                     .into()
             ),
         };
         kind.map(|kind| Statement {kind, span})
+
     }
 }
 
