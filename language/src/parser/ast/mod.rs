@@ -10,10 +10,14 @@ use std::convert::TryInto;
 use anyhow::*;
 use crate::parser::curry_pest::*;
 
-pub fn parse_to_ast(input: &str) -> Result<Statement,Error> {
-    let source_pair = CurryParser::parse(Rule::source, input)
+pub fn parse_to_ast(input: &str) -> Result<Vec<Statement>,Error> {
+    let source_pair: Pair<Rule> = CurryParser::parse(Rule::source, input)
         .context("parsing cst")?
         .unique_pair()?;
 
-    source_pair.try_into().context("build source")
+    source_pair.into_inner()
+        .map(|pair| -> Result<Statement,Error> {
+            pair.try_into().context("couldn't parse stmt")
+        })
+        .collect()
 }

@@ -1,4 +1,4 @@
-source = _{ statement }
+source = { statement* }
 statement = _{ assignment | function_call }
 assignment = { symbol_ref ~ "=" ~ value }
 expression = { value | function_call }

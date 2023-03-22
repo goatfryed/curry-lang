@@ -7,6 +7,10 @@ use curry_lang_language::{LLIRCodeGenerator,Context};
 fn hello_world() {
     run_baseline_test("hello_world");
 }
+#[test]
+fn n_statements() {
+    run_baseline_test("n_statements");
+}
 
 
 

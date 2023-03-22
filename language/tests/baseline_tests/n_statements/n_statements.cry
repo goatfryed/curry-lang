@@ -1,0 +1,2 @@
+printf("Hello World!\n")
+printf("Greetings from curry-lang")
