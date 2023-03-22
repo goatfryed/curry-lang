@@ -1,2 +1,2 @@
-printf("Hello World!\n")
-printf("Greetings from curry-lang")
+printf("Hello World!")
+printf("    Greetings from curry-lang")

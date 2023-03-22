@@ -1,7 +1,7 @@
 source = { statement* }
 statement = _{ assignment | function_call }
 assignment = { symbol_ref ~ "=" ~ value }
-expression = { value | function_call }
+expression = _{ value | function_call }
 
 function_call = { symbol_ref ~ "(" ~ fn_args? ~ ")"}
 fn_args = { fn_arg ~ ("," ~ fn_arg )* }
@@ -11,7 +11,8 @@ fn_arg = _{ expression }
 symbol_ref = { ASCII_ALPHA ~ (ASCII_ALPHANUMERIC|"_")* }
 value = { string }
 
-string = @{ "\"" ~ char* ~ "\"" }
+string = ${ "\"" ~ string_value ~ "\"" }
+string_value = @{ char* }
 char = {
     !("\"" | "\\") ~ ANY
     | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")

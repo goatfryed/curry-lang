@@ -12,11 +12,12 @@ pub struct CurryParser;
 
 
 pub trait PairsHelper<'a> : Iterator + Sized {
-    fn unique_pair(self) -> Result<Pair<'a, Rule>, IllegalSourceState>;
+    fn unique_pair(&mut self) -> Result<Pair<'a, Rule>, IllegalSourceState>;
+    fn expect_unique_pair(&mut self) -> Pair<'a, Rule>;
 }
 
 impl<'a> PairsHelper<'a> for Pairs<'a,Rule> {
-    fn unique_pair(mut self) -> Result<Pair<'a, Rule>, IllegalSourceState> {
+    fn unique_pair(&mut self) -> Result<Pair<'a, Rule>, IllegalSourceState> {
         match self.next() {
             Some(first) => {
                 match self.next() {
@@ -30,6 +31,9 @@ impl<'a> PairsHelper<'a> for Pairs<'a,Rule> {
             }
             None => Err(IllegalSourceState::UniqueConstraintViolation),
         }
+    }
+    fn expect_unique_pair(&mut self) -> Pair<'a, Rule> {
+        self.unique_pair().expect("no unique pair contained")
     }
 }
 

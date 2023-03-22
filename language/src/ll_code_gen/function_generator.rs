@@ -44,16 +44,17 @@ fn build_fn_args<'a: 'b, 'b>(context: &ModuleGenerator<'a, 'b>, pairs: Pairs<Rul
 
 fn build_fn_arg<'a: 'b, 'b>(context: &ModuleGenerator<'a,'b>, pair: Pair<Rule>) -> BasicMetadataValueEnum<'a> {
     match pair.as_rule() {
-        Rule::expression => {},
-        _ => panic!("unsupported pair {:?}", pair)
-    }
-    let pair = pair.into_inner().unique_pair().expect("expression without a single token below");
-    return match pair.as_rule() {
-        Rule::value => context.builder
-            .build_global_string_ptr(pair.as_str(), "arg")
-            .as_basic_value_enum().try_into().unwrap()
-        ,
-        Rule::function_call => todo!("function call as function argument"),
+        Rule::value => {
+            let value_expr = pair.into_inner().expect_unique_pair();
+            match value_expr.as_rule() {
+                Rule::string => {
+                    let str_val = value_expr.into_inner().expect_unique_pair().as_str();
+                    context.builder.build_global_string_ptr(str_val, "str_val")
+                        .as_basic_value_enum().try_into().expect("")
+                }
+                _ => panic!("unsupported pair {:?}", value_expr)
+            }
+        },
         _ => panic!("unsupported pair {:?}", pair)
     }
 }
