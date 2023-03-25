@@ -1,4 +1,4 @@
-use std::path::{Path};
+use std::path::{Path, PathBuf};
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::process::{Command, Stdio};
 use curry_lang_language::{LLIRCodeGenerator,Context};
@@ -10,6 +10,10 @@ fn hello_world() {
 #[test]
 fn n_statements() {
     run_baseline_test("n_statements");
+}
+#[test]
+fn calumni() {
+    run_baseline_test("calumni");
 }
 
 
@@ -28,12 +32,7 @@ fn run_baseline_test(key: &str) {
     let actual_output = &format!("{}.actual.{}", key.to_owned(), "out");
     let actual_errors = &format!("{}.actual.{}", key.to_owned(), "err");
 
-    let context = Context::create();
-    let mut code_gen = LLIRCodeGenerator::new(&context);
-    code_gen.compile_source_file(input).unwrap();
-    let modules = &mut code_gen.modules;
-    assert_eq!(1, modules.len());
-    modules.remove("main").unwrap().print_to_file(ir_path).unwrap();
+    generate_code_for_source(input, ir_path);
 
 
     Command::new("clang")
@@ -52,6 +51,15 @@ fn run_baseline_test(key: &str) {
 
     diff_output(test_dir, key, "err", actual_errors);
     diff_output(test_dir, key, "out", actual_output);
+}
+
+fn generate_code_for_source(input: PathBuf, ir_path: PathBuf) {
+    let context = Context::create();
+    let mut code_gen = LLIRCodeGenerator::new(&context);
+    code_gen.compile_source_file(input).unwrap();
+    let modules = &mut code_gen.modules;
+    assert_eq!(1, modules.len());
+    modules.remove("main").unwrap().print_to_file(ir_path).unwrap();
 }
 
 fn diff_output(test_dir: &Path, key: &str, output_type: &str, actual: &str) {

@@ -1,7 +1,7 @@
-source = { statement* }
+source = { (statement  ~ NEWLINE)* ~ statement  }
 statement = _{ assignment | function_call }
 assignment = { symbol_ref ~ "=" ~ value }
-expression = _{ value | function_call }
+expression = _{ value | symbol_ref }
 
 function_call = { symbol_ref ~ "(" ~ fn_args? ~ ")"}
 fn_args = { fn_arg ~ ("," ~ fn_arg )* }
@@ -19,4 +19,4 @@ char = {
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 
-WHITESPACE = _{" " | NEWLINE}
+WHITESPACE = _{" " | "\t"}

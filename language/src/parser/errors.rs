@@ -11,8 +11,11 @@ pub enum InvalidParserState {
 }
 
 impl InvalidParserState {
-    pub fn illegal_rule(rule: Rule, context: String) -> IllegalSourceState {
-        IllegalSourceState::IllegalRule { rule, context }
+    pub fn illegal_rule_with_context(rule: Rule, _context: String) -> IllegalSourceState {
+        IllegalSourceState::IllegalRule { rule }
+    }
+    pub fn illegal_rule(rule: Rule) -> IllegalSourceState {
+        IllegalSourceState::IllegalRule { rule }
     }
 }
 

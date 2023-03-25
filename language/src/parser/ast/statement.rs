@@ -26,7 +26,7 @@ impl <'a> TryFrom<Pair<'a,Rule>> for Statement<'a> {
             Rule::assignment => Result::Ok(StatementKind::Assignment(pair)),
             Rule::function_call => Result::Ok(StatementKind::FunctionCall(pair)),
             rule => Err(
-                InvalidParserState::illegal_rule(rule, "Tried to create statement".to_string())
+                InvalidParserState::illegal_rule_with_context(rule, "Tried to create statement".to_string())
                     .into()
             ),
         };

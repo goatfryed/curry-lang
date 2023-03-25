@@ -11,29 +11,36 @@ use std::fs::read_to_string;
 use std::path::Path;
 
 use std::rc::Rc;
+use crate::ll_code_gen::function_generator::FunctionGenerator;
 use crate::ll_code_gen::function_generator::libc::declare_libc_builtin;
 use crate::parser::ast::*;
 
 mod function_generator;
+mod assignment;
+mod expression;
 
 const ENTRY_BLOCK_NAME: &str = "entry";
 const MAIN_FN_NAME: &str = "main";
 
 #[derive(Debug)]
-pub struct LLIRCodeGenerator<'a: 'b, 'b> {
-    pub context: &'a Context,
-    pub modules: HashMap<String, Rc<Module<'b>>>
+pub struct LLIRCodeGenerator<'gen> {
+    pub context: &'gen Context,
+    pub modules: HashMap<String, Rc<Module<'gen>>>
 }
 
 #[derive(Debug)]
-pub struct ModuleGenerator<'a: 'b, 'b> {
-    pub context: &'a Context,
-    pub module: &'b Module<'a>,
-    pub builder: &'b Builder<'a>,
+pub struct ModuleGenerator<'gen: 'module, 'module> {
+    pub parent: &'module LLIRCodeGenerator<'gen>,
+    pub module: Rc<Module<'gen>>,
+    pub builder: Builder<'gen>,
 }
 
-impl <'a, 'b> LLIRCodeGenerator<'a, 'b> {
-    pub fn new(context: &'a Context) -> LLIRCodeGenerator<'a, 'b> {
+impl <'gen: 'module, 'module> ModuleGenerator<'gen, 'module> {
+
+}
+
+impl <'gen> LLIRCodeGenerator<'gen> {
+    pub fn new(context: &'gen Context) -> LLIRCodeGenerator<'gen> {
         LLIRCodeGenerator {
             context,
             modules: HashMap::new(),
@@ -57,32 +64,14 @@ impl <'a, 'b> LLIRCodeGenerator<'a, 'b> {
     }
 
     fn create_main_module(&mut self, statements: Vec<Statement>) -> anyhow::Result<()> {
-        self.create_module(MAIN_FN_NAME, |module_gen: &ModuleGenerator| {
-            declare_libc_builtin(module_gen);
-            module_gen.build_fn(MAIN_FN_NAME, statements);
-        })
-    }
-
-    pub fn create_module<F>
-    (
-        &mut self,
-        name: &str,
-        build_module: F
-    ) -> anyhow::Result<()>
-        where F: FnOnce(&ModuleGenerator)
-    {
+        let name = MAIN_FN_NAME;
         let module = Rc::new(self.context.create_module(name));
+        self.modules.insert(name.to_string(), module.clone());
         let builder = self.context.create_builder();
-        let module_gen = ModuleGenerator {module: &module, context: self.context, builder: &builder};
-        build_module(&module_gen);
-        self.modules.insert(name.to_string(), module);
+        let module_gen = Box::new(ModuleGenerator {module, parent: self, builder});
+        declare_libc_builtin(module_gen.as_ref());
+        FunctionGenerator::generate(&module_gen, MAIN_FN_NAME, statements);
 
         Ok(())
-    }
-}
-
-impl <'a: 'b, 'b> ModuleGenerator<'b, '_> {
-    fn build_fn(&self, name: &str, statements: Vec<Statement>) {
-        function_generator::generate(self, name, statements);
     }
 }

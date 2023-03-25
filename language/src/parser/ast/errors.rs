@@ -5,9 +5,8 @@ use crate::parser::curry_pest::Rule;
 pub enum IllegalSourceState {
     #[error("Expected exactly one inner pair")]
     UniqueConstraintViolation,
-    #[error("{rule} is not allowed here: {context}")]
+    #[error("{rule} is not allowed")]
     IllegalRule {
         rule: Rule,
-        context: String,
     },
 }
