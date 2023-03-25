@@ -15,7 +15,7 @@ string = ${ "\"" ~ string_value ~ "\"" }
 string_value = @{ char* }
 char = {
     !("\"" | "\\") ~ ANY
-    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("\"" | "\\" | "b" | "f" | "n" | "r" | "t")
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 

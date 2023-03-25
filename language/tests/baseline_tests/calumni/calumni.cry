@@ -4,3 +4,5 @@ firstname = "Chuck"
 
 
 surname = "Norris"
+
+printf("%s,\n%s %s", greeting, firstname, surname)
