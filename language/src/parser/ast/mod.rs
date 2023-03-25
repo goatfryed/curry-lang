@@ -16,6 +16,7 @@ pub fn parse_to_ast(input: &str) -> Result<Vec<Statement>,Error> {
         .unique_pair()?;
 
     source_pair.into_inner()
+        .filter(|pair| pair.as_rule() != Rule::EOI)
         .map(|pair| -> Result<Statement,Error> {
             pair.try_into().context("couldn't parse stmt")
         })

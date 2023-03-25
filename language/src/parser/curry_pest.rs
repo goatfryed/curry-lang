@@ -10,30 +10,39 @@ use super::*;
 #[grammar = "parser/grammar.pest"]
 pub struct CurryParser;
 
+pub trait PairHelper<'i> {
+    fn unique_inner(self) -> anyhow::Result<Pair<'i, Rule>>;
+}
+
+impl <'i> PairHelper<'i> for Pair<'i,Rule> {
+    fn unique_inner(self) -> anyhow::Result<Pair<'i, Rule>> {
+        self.into_inner().unique_pair()
+    }
+}
 
 pub trait PairsHelper<'a> : Iterator + Sized {
-    fn unique_pair(&mut self) -> Result<Pair<'a, Rule>, IllegalSourceState>;
+    fn unique_pair(&mut self) -> anyhow::Result<Pair<'a, Rule>>;
     fn expect_unique_pair(&mut self) -> Pair<'a, Rule>;
 }
 
 impl<'a> PairsHelper<'a> for Pairs<'a,Rule> {
-    fn unique_pair(&mut self) -> Result<Pair<'a, Rule>, IllegalSourceState> {
+    fn unique_pair(&mut self) -> anyhow::Result<Pair<'a, Rule>> {
         match self.next() {
             Some(first) => {
                 match self.next() {
                     Some(_second) => {
-                        Err(IllegalSourceState::UniqueConstraintViolation)
-                    }
+                        Err(anyhow::Error::msg("UniqueConstraintViolation: multiple items"))
+                    },
                     None => {
                         Ok(first)
                     }
                 }
             }
-            None => Err(IllegalSourceState::UniqueConstraintViolation),
+            None => Err(anyhow::Error::msg("UniqueConstraintViolation: no items")),
         }
     }
     fn expect_unique_pair(&mut self) -> Pair<'a, Rule> {
-        self.unique_pair().expect("no unique pair contained")
+        self.unique_pair().unwrap()
     }
 }
 

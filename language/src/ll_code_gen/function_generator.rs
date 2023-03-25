@@ -3,12 +3,13 @@ use inkwell::values::{FunctionValue, PointerValue};
 use crate::ll_code_gen::assignment::{Assignment};
 use anyhow::Context as AnyhowContext;
 use inkwell::basic_block::BasicBlock;
+use crate::ll_code_gen::expression::generate_expression;
 use super::*;
 
 pub struct FunctionGenerator<'gen: 'module, 'module: 'func, 'func> {
-    parent: &'func ModuleGenerator<'gen, 'module>,
-    symbols: RefCell<HashMap<String, PointerValue<'gen>>>,
-    builder: Builder<'gen>,
+    pub parent: &'func ModuleGenerator<'gen, 'module>,
+    pub symbols: RefCell<HashMap<String, PointerValue<'gen>>>,
+    pub builder: Builder<'gen>,
     function: FunctionValue<'gen>,
     entry: BasicBlock<'gen>,
 }
@@ -55,7 +56,10 @@ impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'fu
             StatementKind::FunctionCall(call) => {
                 let mut inner = call.into_inner();
                 let symbol_ref = inner.next().expect("function call requires symbol ref").as_str();
-                let args = inner.next().map(|args| self.build_fn_args(args.into_inner())).unwrap_or(Vec::new());
+                let fn_args = inner.next().expect("function call requires arguments");
+                let args = self.build_fn_args(fn_args.into_inner())
+                    .context("resolve function arguments")
+                    .unwrap();
 
                 self.builder.build_call(
                     self.parent.module.get_function(symbol_ref).unwrap_or_else(|| panic!("{} not defined", symbol_ref)),
@@ -80,27 +84,10 @@ impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'fu
         Ok(())
     }
 
-    fn build_fn_args(&self, pairs: Pairs<Rule>) -> Vec<BasicMetadataValueEnum<'gen>> {
+    fn build_fn_args(&self, pairs: Pairs<Rule>) -> Result<Vec<BasicMetadataValueEnum<'gen>>> {
         pairs.into_iter()
-            .map(|arg| self.build_fn_arg(arg))
-            .collect::<Vec<BasicMetadataValueEnum>>()
-    }
-
-    fn build_fn_arg(&self, pair: Pair<Rule>) -> BasicMetadataValueEnum<'gen> {
-        match pair.as_rule() {
-            Rule::value => {
-                let value_expr = pair.into_inner().expect_unique_pair();
-                match value_expr.as_rule() {
-                    Rule::string => {
-                        let str_val = value_expr.into_inner().expect_unique_pair().as_str();
-                        self.builder.build_global_string_ptr(str_val, "str_val")
-                            .as_basic_value_enum().try_into().expect("")
-                    },
-                    _ => unreachable!()
-                }
-            },
-            _ => unreachable!()
-        }
+            .map(|arg| generate_expression(arg, self))
+            .collect::<Result<Vec<BasicMetadataValueEnum>>>()
     }
 }
 

@@ -1,4 +1,4 @@
-source = { (statement  ~ NEWLINE)* ~ statement  }
+source = { SOI ~ NEWLINE* ~ (statement  ~ NEWLINE+)+ ~ statement? ~ EOI }
 statement = _{ assignment | function_call }
 assignment = { symbol_ref ~ "=" ~ value }
 expression = _{ value | symbol_ref }

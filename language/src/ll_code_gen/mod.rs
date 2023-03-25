@@ -56,7 +56,7 @@ impl <'gen> LLIRCodeGenerator<'gen> {
 
     pub fn compile_source(&mut self, input: String) -> Result<()> {
 
-        let source = parse_to_ast(input.as_ref())?;
+        let source = parse_to_ast(input.as_ref()).context("compile source")?;
         self.create_main_module(source)
             .context("create main module")?;
 
