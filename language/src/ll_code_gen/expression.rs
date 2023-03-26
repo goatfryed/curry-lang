@@ -1,10 +1,10 @@
 use anyhow::*;
-use inkwell::values::{BasicMetadataValueEnum, BasicValue, IntValue, PointerValue};
+use inkwell::values::{BasicMetadataValueEnum, BasicValue};
 use pest::iterators::Pair;
 use crate::ll_code_gen::function_generator::FunctionGenerator;
 use crate::parser::curry_pest::{Rule, PairHelper};
 
-pub fn generate_expression<'gen>(pair: Pair<Rule>, scope: &FunctionGenerator<'gen,'_,'_>) -> anyhow::Result<BasicMetadataValueEnum<'gen>> {
+pub fn generate_expression<'gen>(pair: Pair<Rule>, scope: &FunctionGenerator<'gen,'_,'_>) -> Result<BasicMetadataValueEnum<'gen>> {
     match pair.as_rule() {
         Rule::value => {
             let value_expr = pair.unique_inner()?;

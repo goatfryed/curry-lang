@@ -1,13 +1,24 @@
-source = { SOI ~ NEWLINE* ~ (statement  ~ NEWLINE+)+ ~ statement? ~ EOI }
-statement = _{ assignment | function_call }
-assignment = { symbol_ref ~ "=" ~ value }
-expression = _{ value | symbol_ref }
+source = { script | program }
 
-function_call = { symbol_ref ~ "(" ~ fn_args? ~ ")"}
-fn_args = { fn_arg ~ ("," ~ fn_arg )* }
+script = { SOI ~ statements ~ EOI }
+
+program = { SOI ~ NEWLINE* ~ entry_definition ~ NEWLINE+ ~ function_declarations ~ EOI}
+entry_definition = ${ SOI ~ "entry:" ~ symbol_ref }
+
+function_declarations = { function_declaration ~ (NEWLINE+ ~ function_declaration )* ~ NEWLINE*}
+function_declaration = { "fn" ~ symbol_ref ~ fn_args ~ NEWLINE? ~ function_body }
+function_body = { "{" ~ statements ~ "}" }
+
+fn_args = { "(" ~ ( fn_arg ~ ("," ~ fn_arg )* ~ ","? )? ~ ")" }
 fn_arg = _{ expression }
 
+statements = _{ NEWLINE* ~ (statement ~ NEWLINE+)* ~ statement? }
 
+statement = _{ assignment | function_call }
+function_call = { symbol_ref ~ fn_args }
+assignment = { symbol_ref ~ "=" ~ value }
+
+expression = _{ value | symbol_ref }
 symbol_ref = { ASCII_ALPHA ~ (ASCII_ALPHANUMERIC|"_")* }
 value = { string }
 

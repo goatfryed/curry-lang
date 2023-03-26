@@ -4,7 +4,6 @@ pub use pest::Parser;
 use std::fmt;
 use std::fmt::Formatter;
 use pest_derive::Parser;
-use super::*;
 
 #[derive(Parser)]
 #[grammar = "parser/grammar.pest"]

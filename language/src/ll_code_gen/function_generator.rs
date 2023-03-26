@@ -10,8 +10,8 @@ pub struct FunctionGenerator<'gen: 'module, 'module: 'func, 'func> {
     pub parent: &'func ModuleGenerator<'gen, 'module>,
     pub symbols: RefCell<HashMap<String, PointerValue<'gen>>>,
     pub builder: Builder<'gen>,
-    function: FunctionValue<'gen>,
-    entry: BasicBlock<'gen>,
+    _function: FunctionValue<'gen>,
+    _entry: BasicBlock<'gen>,
 }
 
 impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'func> {
@@ -40,9 +40,9 @@ impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'fu
 
         FunctionGenerator {
             parent: module,
-            function,
+            _function: function,
             builder,
-            entry,
+            _entry: entry,
             symbols: RefCell::new(HashMap::new()),
         }
     }
@@ -70,7 +70,7 @@ impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'fu
         }
     }
 
-    pub fn generate_string_assignment(&self, assignment: Assignment) -> anyhow::Result<()> {
+    pub fn generate_string_assignment(&self, assignment: Assignment) -> Result<()> {
         let name = assignment.symbol_ref.name;
         let mut symbols = self.symbols.borrow_mut();
         if symbols.contains_key(name.as_str()) {
