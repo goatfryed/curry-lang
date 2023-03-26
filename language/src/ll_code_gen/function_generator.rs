@@ -10,7 +10,7 @@ pub struct FunctionGenerator<'gen: 'module, 'module: 'func, 'func> {
     pub parent: &'func ModuleGenerator<'gen, 'module>,
     pub symbols: RefCell<HashMap<String, PointerValue<'gen>>>,
     pub builder: Builder<'gen>,
-    _function: FunctionValue<'gen>,
+    function: FunctionValue<'gen>,
     _entry: BasicBlock<'gen>,
 }
 
@@ -24,12 +24,17 @@ impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'fu
             fn_gen.add_statement(statement);
         }
 
-        fn_gen.builder.build_return(None);
+        fn_gen.complete();
+    }
+
+    pub fn complete(self) {
+        self.builder.build_return(None);
+        self.function.verify(true);
     }
 
     pub fn declare_void_fn(context: &'func ModuleGenerator<'gen, 'module>, name: &str) -> FunctionValue<'gen> {
-        let type_main = context.parent.context.void_type().fn_type(&[], false);
-        context.module.add_function(name, type_main, None)
+        let fn_type = context.parent.context.void_type().fn_type(&[], false);
+        context.module.add_function(name, fn_type, None)
     }
 
     pub fn create_generator(module: &'func ModuleGenerator<'gen, 'module>, function: FunctionValue<'gen>) -> FunctionGenerator<'gen, 'module, 'func> {
@@ -40,7 +45,7 @@ impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'fu
 
         FunctionGenerator {
             parent: module,
-            _function: function,
+            function: function,
             builder,
             _entry: entry,
             symbols: RefCell::new(HashMap::new()),
@@ -61,13 +66,17 @@ impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'fu
                     .context("resolve function arguments")
                     .unwrap();
 
-                self.builder.build_call(
-                    self.parent.module.get_function(symbol_ref).unwrap_or_else(|| panic!("{} not defined", symbol_ref)),
-                    args.as_ref(),
-                    symbol_ref
-                );
+                self.create_function_call(symbol_ref, args);
             }
         }
+    }
+
+    pub fn create_function_call(&self, symbol_ref: &str, args: Vec<BasicMetadataValueEnum>) {
+        self.builder.build_call(
+            self.parent.module.get_function(symbol_ref).unwrap_or_else(|| panic!("{} not defined", symbol_ref)),
+            args.as_ref(),
+            symbol_ref
+        );
     }
 
     pub fn generate_string_assignment(&self, assignment: Assignment) -> Result<()> {

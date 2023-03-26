@@ -15,6 +15,10 @@ fn n_statements() {
 fn calumni() {
     run_baseline_test("calumni");
 }
+#[test]
+fn minimal_program() {
+    run_baseline_test("minimal_program");
+}
 
 
 

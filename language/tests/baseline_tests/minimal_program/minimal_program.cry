@@ -1,0 +1,5 @@
+entry: greeting
+
+func greeting() {
+	printf("Hello, Chuck Norris")
+}

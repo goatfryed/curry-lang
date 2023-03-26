@@ -40,7 +40,7 @@ impl <'gen> LLIRCodeGenerator<'gen> {
         let input = read_to_string(&path)
             .with_context(|| format!("reading {}", path.as_ref().display()))?;
 
-        self.compile_source(input)
+        self.compile_source(input).context("compile source from file")
     }
 
     pub fn compile_source(&mut self, input: String) -> Result<()> {
@@ -57,11 +57,42 @@ impl <'gen> LLIRCodeGenerator<'gen> {
                     .collect();
 
                 self.create_script(statements?)
-                    .context("create main module")?
+                    .context("create script")?
             },
-            Rule::program => {},
+            Rule::program => self.create_program(source).context("create program")?,
             it => unreachable!("unexpected rule {}", it)
         };
+
+        Ok(())
+    }
+
+    fn create_program(&mut self, program: Pair<Rule>) -> Result<()> {
+        let mut entry: Option<&str> = None;
+        let module_gen = self.create_module_generator(MAIN_FN_NAME);
+
+        module_gen.declare_libc_builtin();
+
+        let pairs = program.into_inner();
+        for pair in pairs {
+            match pair.as_rule() {
+                Rule::entry_definition => {
+                    match entry {
+                        Some(_) => Err(Error::msg("encountered multiple entry definitions"))?,
+                        None => entry = Some(pair.unique_inner()?.as_str()),
+                    }
+                },
+                Rule::function_declaration => {
+                    module_gen.process_function_declaration(pair)?
+                },
+                Rule::EOI => {},
+                it => unreachable!("unexpected rule {}", it),
+            }
+        }
+
+        match entry {
+            Some(entry_fn_name) => module_gen.create_program_main(entry_fn_name),
+            None => unreachable!("entry definition missing"),
+        }
 
         Ok(())
     }
@@ -70,7 +101,7 @@ impl <'gen> LLIRCodeGenerator<'gen> {
         let name = MAIN_FN_NAME;
         let module_gen = self.create_module_generator(name);
         module_gen.declare_libc_builtin();
-        module_gen.generate_function(MAIN_FN_NAME, statements);
+        module_gen.generate_function_from_statements(MAIN_FN_NAME, statements);
 
         Ok(())
     }
@@ -92,6 +123,7 @@ pub struct ModuleGenerator<'gen: 'module, 'module> {
     pub module: Rc<Module<'gen>>,
     pub builder: Builder<'gen>,
 }
+
 impl <'gen: 'module, 'module> ModuleGenerator<'gen, 'module> {
 
     pub fn create(parent: &'module LLIRCodeGenerator<'gen>, module: Rc<Module<'gen>>) -> Self {
@@ -103,8 +135,38 @@ impl <'gen: 'module, 'module> ModuleGenerator<'gen, 'module> {
         declare_libc_builtin(self);
     }
 
-    pub fn generate_function(&self, name: &str, statements: Vec<Statement>) {
+    pub fn create_program_main(&self, entry_fn_name: &str) {
+        let function = FunctionGenerator::declare_void_fn(self, MAIN_FN_NAME);
+        let fn_gen = FunctionGenerator::create_generator(self, function);
+        fn_gen.create_function_call(entry_fn_name, Vec::new());
+        fn_gen.complete();
+    }
+
+    pub fn generate_function_from_statements(&self, name: &str, statements: Vec<Statement>) {
         FunctionGenerator::generate(self, name, statements);
+    }
+    pub fn process_function_declaration(&self, pair: Pair<Rule>) -> Result<()> {
+        let _line_col = pair.line_col();
+        let mut pairs = pair.into_inner();
+        let name = pairs.next().context("function name")?.as_str();
+        let _args = pairs.next().context("function args")?.into_inner();
+        let body = pairs.next()
+            .context("function body")?
+            .into_inner();
+
+        let function = FunctionGenerator::declare_void_fn(self, name);
+        let fn_gen = FunctionGenerator::create_generator(self, function);
+
+        body.map( |it| it.try_into().context("function body"))
+            .try_for_each(|it|
+                it.map(|pair|
+                    fn_gen.add_statement(pair)
+                )
+            )?;
+
+        fn_gen.complete();
+
+        Ok(())
     }
 
 }

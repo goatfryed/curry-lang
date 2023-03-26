@@ -3,10 +3,10 @@ source = { script | program }
 script = { SOI ~ statements ~ EOI }
 
 program = { SOI ~ NEWLINE* ~ entry_definition ~ NEWLINE+ ~ function_declarations ~ EOI}
-entry_definition = ${ SOI ~ "entry:" ~ symbol_ref }
+entry_definition = ${ SOI ~ "entry" ~ WHITE_SPACE* ~ ":" ~ WHITESPACE* ~ symbol_ref }
 
-function_declarations = { function_declaration ~ (NEWLINE+ ~ function_declaration )* ~ NEWLINE*}
-function_declaration = { "fn" ~ symbol_ref ~ fn_args ~ NEWLINE? ~ function_body }
+function_declarations = _{ function_declaration ~ (NEWLINE+ ~ function_declaration )* ~ NEWLINE*}
+function_declaration = { FUNCTION_KEYWORD ~ symbol_ref ~ fn_args ~ NEWLINE? ~ function_body }
 function_body = { "{" ~ statements ~ "}" }
 
 fn_args = { "(" ~ ( fn_arg ~ ("," ~ fn_arg )* ~ ","? )? ~ ")" }
@@ -19,7 +19,7 @@ function_call = { symbol_ref ~ fn_args }
 assignment = { symbol_ref ~ "=" ~ value }
 
 expression = _{ value | symbol_ref }
-symbol_ref = { ASCII_ALPHA ~ (ASCII_ALPHANUMERIC|"_")* }
+symbol_ref = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC|"_")* }
 value = { string }
 
 string = ${ "\"" ~ string_value ~ "\"" }
@@ -29,5 +29,7 @@ char = {
     | "\\" ~ ("\"" | "\\" | "b" | "f" | "n" | "r" | "t")
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
+
+FUNCTION_KEYWORD = _{ ("function" | "func" | "fun" | "fn") }
 
 WHITESPACE = _{" " | "\t"}
