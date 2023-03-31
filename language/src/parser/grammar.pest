@@ -16,13 +16,13 @@ statements = _{ NEWLINE* ~ (statement ~ NEWLINE+)* ~ statement? }
 
 statement = _{ assignment | function_call }
 function_call = { symbol_ref ~ fn_args }
-assignment = { symbol_ref ~ "=" ~ value }
+assignment = { symbol_ref ~ "=" ~ expression }
 
-expression = _{ value | symbol_ref }
+expression = _{ function_call | symbol_ref | value  }
 symbol_ref = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC|"_")* }
-value = { string }
+value = _{ string_literal }
 
-string = ${ "\"" ~ string_value ~ "\"" }
+string_literal = ${ "\"" ~ string_value ~ "\"" }
 string_value = @{ char* }
 char = {
     !("\"" | "\\") ~ ANY

@@ -1,6 +1,6 @@
 use std::cell::{RefCell};
-use inkwell::values::{FunctionValue, PointerValue};
-use crate::ll_code_gen::assignment::{Assignment};
+use inkwell::values::{BasicValueEnum, FunctionValue, PointerValue};
+use crate::ll_code_gen::assignment::Assignment;
 use anyhow::Context as AnyhowContext;
 use inkwell::basic_block::BasicBlock;
 use crate::ll_code_gen::expression::generate_expression;
@@ -12,6 +12,7 @@ pub struct FunctionGenerator<'gen: 'module, 'module: 'func, 'func> {
     pub builder: Builder<'gen>,
     function: FunctionValue<'gen>,
     _entry: BasicBlock<'gen>,
+    last_value: RefCell<Option<BasicValueEnum<'gen>>>,
 }
 
 impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'func> {
@@ -28,7 +29,16 @@ impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'fu
     }
 
     pub fn complete(self) {
-        self.builder.build_return(None);
+        let last_value: Option<BasicValueEnum<'gen>> = self.last_value.into_inner();
+        // self.builder.build_return(last_value.as_ref()); // <- does not work
+
+        match last_value {
+            Some(value) => {
+                self.builder.build_return(Some(&value));
+            },
+            None => { self.builder.build_return(None); },
+        }
+
         self.function.verify(true);
     }
 
@@ -45,10 +55,11 @@ impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'fu
 
         FunctionGenerator {
             parent: module,
-            function: function,
+            function,
             builder,
             _entry: entry,
             symbols: RefCell::new(HashMap::new()),
+            last_value: RefCell::new(None),
         }
     }
 
@@ -56,41 +67,13 @@ impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'fu
         match statement.kind {
             StatementKind::Assignment(pair) => {
                 let assignment : Assignment = pair.try_into().context("resolve assignment").unwrap();
-                self.generate_string_assignment(assignment).unwrap();
+                let value_enum = assignment.process(self).context("function block -> statement").unwrap();
+                self.last_value.replace(Some(value_enum));
             },
             StatementKind::FunctionCall(call) => {
-                let mut inner = call.into_inner();
-                let symbol_ref = inner.next().expect("function call requires symbol ref").as_str();
-                let fn_args = inner.next().expect("function call requires arguments");
-                let args = self.build_fn_args(fn_args.into_inner())
-                    .context("resolve function arguments")
-                    .unwrap();
-
-                self.create_function_call(symbol_ref, args);
+                self.process_function_call(call);
             }
         }
-    }
-
-    pub fn create_function_call(&self, symbol_ref: &str, args: Vec<BasicMetadataValueEnum>) {
-        self.builder.build_call(
-            self.parent.module.get_function(symbol_ref).unwrap_or_else(|| panic!("{} not defined", symbol_ref)),
-            args.as_ref(),
-            symbol_ref
-        );
-    }
-
-    pub fn generate_string_assignment(&self, assignment: Assignment) -> Result<()> {
-        let name = assignment.symbol_ref.name;
-        let mut symbols = self.symbols.borrow_mut();
-        if symbols.contains_key(name.as_str()) {
-            return Err(Error::msg(format!("variable '{}' is already defined", name)))
-        }
-        let array_value = self.parent.parent.context.const_string(assignment.value.value.as_bytes(), true);
-        let pointer = self.builder.build_alloca(array_value.get_type(), name.as_str());
-        self.builder.build_store(pointer, array_value);
-
-        symbols.insert(name, pointer);
-        Ok(())
     }
 
     fn build_fn_args(&self, pairs: Pairs<Rule>) -> Result<Vec<BasicMetadataValueEnum<'gen>>> {
@@ -98,7 +81,30 @@ impl <'gen: 'module, 'module: 'func, 'func> FunctionGenerator<'gen, 'module, 'fu
             .map(|arg| generate_expression(arg, self))
             .collect::<Result<Vec<BasicMetadataValueEnum>>>()
     }
+
+
+    pub fn process_function_call(&self, call: Pair<Rule>) -> Option<BasicValueEnum<'gen>> {
+        let mut inner = call.into_inner();
+        let symbol_ref = inner.next().expect("function call requires symbol ref").as_str();
+        let fn_args = inner.next().expect("function call requires arguments");
+        let args = self.build_fn_args(fn_args.into_inner())
+            .context("resolve function arguments")
+            .unwrap();
+
+        self.create_function_call(symbol_ref, args)
+    }
+
+    pub fn create_function_call(&self, symbol_ref: &str, args: Vec<BasicMetadataValueEnum<'gen>>) -> Option<BasicValueEnum<'gen>> {
+        let value = self.builder.build_call(
+            self.parent.module.get_function(symbol_ref).unwrap_or_else(|| panic!("{} not defined", symbol_ref)),
+            args.as_ref(),
+            symbol_ref
+        );
+        value.try_as_basic_value().left()
+    }
 }
+
+
 
 pub mod libc {
     use inkwell::AddressSpace;

@@ -19,6 +19,10 @@ fn calumni() {
 fn minimal_program() {
     run_baseline_test("minimal_program");
 }
+#[test]
+fn return_values() {
+    run_baseline_test("return_values");
+}
 
 
 

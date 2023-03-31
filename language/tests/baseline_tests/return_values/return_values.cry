@@ -1,0 +1,15 @@
+entry: main
+
+func getFirstName() {
+	name = "Chucky"
+}
+
+func getLastName() {
+	name = "Bear"
+}
+
+func main() {
+	firstName = getFirstName()
+	lastName = getLastName()
+	printf("Greetings, %s %s")
+}

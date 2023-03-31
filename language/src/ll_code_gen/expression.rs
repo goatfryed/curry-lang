@@ -6,20 +6,16 @@ use crate::parser::curry_pest::{Rule, PairHelper};
 
 pub fn generate_expression<'gen>(pair: Pair<Rule>, scope: &FunctionGenerator<'gen,'_,'_>) -> Result<BasicMetadataValueEnum<'gen>> {
     match pair.as_rule() {
-        Rule::value => {
-            let value_expr = pair.unique_inner()?;
-            match value_expr.as_rule() {
-                Rule::string => {
-                    let string_expr : StringConstant = value_expr.into();
-                    string_expr.generate(scope)
-                },
-                it => todo!("build_fn_arg value - {}", it)
-            }
+        Rule::string_literal => {
+            let string_expr : StringConstant = pair.into();
+            string_expr.generate(scope)
         },
-        _ => {
+        Rule::symbol_ref => {
             let variable_expr: VariableValue = pair.into();
             variable_expr.resolve_variable(scope)
         }
+        Rule::function_call => todo!("generate_expression -> function_call"),
+        it => unreachable!("unexpected expression {}", it),
     }
 }
 

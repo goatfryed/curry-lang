@@ -9,6 +9,7 @@ edition = "2018"
 pest = "^2.1"
 pest_derive = "^2.1"
 itertools = "~0.10"
+llvm-sys = "^120.2.6"
 inkwell = { version = "^0.1.1", features = ["llvm12-0"] }
 failure = "^0.1"
 thiserror = "^1.0"
